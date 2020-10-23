@@ -65,8 +65,13 @@ cat('Download MapBiomas data for', biomes$name_biome)
 aoi <- sf_as_ee(biomes) # Can take some minutes to import the polygon
 
 ####' ----- Set dates to be extracted ####
-years <- c(2000:2019)
-months <- c(1:12)
+time_span %<>%
+  rowwise() %>%
+  mutate(time_range = list(c(start:end))) %>%
+  pull(time_range)
+
+years <- time_span[[1]]
+months <- time_span[[2]]
 
 #### ----------------------------------- Create masks of burns and forests ####
 
