@@ -6,12 +6,12 @@
 ##
 ## Script name:   Download images
 ##
-## Description:
-##
-##
-##
-##
-##
+## Description:   This routine is responsible for downloading data from
+##                MapBiomas, CHIRPS, and MODIS products using GEE.
+##                Before downloading the data is filtered based on quality
+##                flags. After filtering we calculate monthly composites
+##                for each variable. Downloaded files will be stored in the
+##                working dir.
 ##
 ##
 ##
@@ -26,9 +26,8 @@
 ##
 ## ------------------------------------------------------------------------- ##
 ##
-## Notes:
-##
-##
+## Notes:         Check the "00_config.R" file to change options for this
+##                routine.
 ##
 ## ------------------------------------------------------------------------- ##
 ##
