@@ -15,9 +15,7 @@
 ## Author:        Hugo Tameirao Seixas
 ## Contact:       hugo.seixas@alumni.usp.br / tameirao.hugo@gmail.com
 ##
-## Date created:  07-oct-2020
-## Last update:
-## Last tested:   07-oct-2020
+## Date created:  2020-10-07
 ##
 ## Copyright (c) Hugo Tameirao Seixas, 2020
 ##
