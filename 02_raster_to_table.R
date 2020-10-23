@@ -8,7 +8,7 @@
 ##
 ## Description:   This routine loads chunks of raster (of different variables)
 ##                and transform them into a table containing its values, its
-##                occurance year and coordinates information.
+##                occurrence year and coordinates information.
 ##                The table of each variable is saved in .txt format for later
 ##                use.
 ##
@@ -33,6 +33,7 @@ library(raster)
 library(tabularaster)
 library(fs)
 library(glue)
+library(furrr)
 library(tidyverse)
 library(tictoc)
 ##
@@ -40,7 +41,7 @@ library(tictoc)
 ##
 #### Options ####
 ##
-
+source("00_config.R")
 ##
 ## ------------------------------------------------------------------------- ##
 ####* ------------------------------- CODE ------------------------------ *####
@@ -120,7 +121,17 @@ variables <- dir_ls('data/original_raster/') %>%
   pull(value)
 
 ####' ----- Apply function to all variables ####
-walk(variables, raster_to_table)
+if (multi_thread == TRUE) {
+
+  plan(strategy = "multiprocess", workers = workers_num)
+
+  future_walk(variables, raster_to_table)
+
+} else if(multi_thread == FALSE) {
+
+  walk(variables, raster_to_table)
+
+}
 
 toc()
 
