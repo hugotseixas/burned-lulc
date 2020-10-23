@@ -149,15 +149,15 @@ mask <-
 ####' ----- Create list of products ####
 ee_products <-
   tribble(
-    ~var,                   ~prod,     ~qa_band,      ~filter,   ~band,
-    "precipitation", "UCSB-CHG/CHIRPS/DAILY", NA,        NA,  "precipitation",
-    "gpp",    "MODIS/006/MOD17A2H",     "Psn_QC",   "filter_2",  "Gpp",
-    "evi",     "MODIS/006/MOD13A1", "DetailedQA",   "filter_1",  "EVI",
-    "ndvi",     "MODIS/006/MOD13A1", "DetailedQA",   "filter_1",  "NDVI",
-    "lai",    "MODIS/006/MOD15A2H", "FparLai_QC",   "filter_2",  "Lai_500m",
-    "fpar",    "MODIS/006/MOD15A2H", "FparLai_QC",   "filter_2",  "Fpar_500m",
-    "et",     "MODIS/006/MOD16A2",      "ET_QC",   "filter_2",  "ET",
-    "lst",     "MODIS/006/MOD11A2",     "QC_Day",   "filter_3",  "LST_Day_1km"
+        ~var,                   ~prod,     ~qa_band, ~filter,            ~band,
+    "precip", "UCSB-CHG/CHIRPS/DAILY",           NA,      NA,  "precipitation",
+       "gpp",    "MODIS/006/MOD17A2H",     "Psn_QC",   "f_2",            "Gpp",
+       "evi",     "MODIS/006/MOD13A1", "DetailedQA",   "f_1",            "EVI",
+      "ndvi",     "MODIS/006/MOD13A1", "DetailedQA",   "f_1",           "NDVI",
+       "lai",    "MODIS/006/MOD15A2H", "FparLai_QC",   "f_2",       "Lai_500m",
+      "fpar",    "MODIS/006/MOD15A2H", "FparLai_QC",   "f_2",      "Fpar_500m",
+        "et",     "MODIS/006/MOD16A2",      "ET_QC",   "f_2",             "ET",
+       "lst",     "MODIS/006/MOD11A2",     "QC_Day",   "f_3",    "LST_Day_1km"
   )
 
 ####' ----- Filter products list ####
@@ -192,7 +192,7 @@ bit_list <-
 apply_quality_filter <-
   function(image, product, qa_band) {
 
-    if(product != "precipitation") {
+    if(product != "precip") {
 
       qa_bits <-
         bit_list %>%
@@ -263,7 +263,7 @@ filtered_products <-
 
 ####' ----- Function to extract monthly values ####
 calc_monthly_composite <-
-  function(var) {
+  function(var, product) {
 
     return(
       ee$Image(
@@ -274,15 +274,29 @@ calc_monthly_composite <-
               map(
                 months,
                 function(m) {
-                  return(
-                    var$
-                      filter(ee$Filter$calendarRange(y, y, 'year'))$
-                      filter(ee$Filter$calendarRange(m, m, 'month'))$
-                      mean()$ # TO DO: this have to change according to variable
-                      # Going to try a !!sym() pointing to an extra column
-                      # of the products table with the metrics of each var
-                      rename(glue('{y}-{m}'))
-                  )
+                  if(product == "precip") {
+
+                    return(
+                      var$
+                        filter(ee$Filter$calendarRange(y, y, 'year'))$
+                        filter(ee$Filter$calendarRange(m, m, 'month'))$
+                        sum()$
+                        rename(glue('{y}-{m}'))
+                    )
+
+                  } else {
+
+
+                    return(
+                      var$
+                        filter(ee$Filter$calendarRange(y, y, 'year'))$
+                        filter(ee$Filter$calendarRange(m, m, 'month'))$
+                        mean()$
+                        rename(glue('{y}-{m}'))
+                    )
+
+                  }
+
                 }
               )
             )
@@ -294,17 +308,22 @@ calc_monthly_composite <-
   }
 
 ####' ----- Calculate monthly composites ####
-monthly_products <- map(filtered_products, calc_monthly_composite)
+monthly_products <-
+  map2(
+    .x = filtered_products,
+    .y = ee_products$var,
+    calc_monthly_composite
+  )
 
 #### --------------------------------------------------------- Apply masks ####
 
-modis_burned <- modis_burned$toBands()
+modis_burned <- modis_burned$select('BurnDate')$toBands()
 
 ####' ----- Add modis burned area to list of products ####
-monthly_products[[9]] <- modis_burned
+monthly_products <- c(monthly_products, modis_burned)
 
 ####' ----- Add MapBiomas image to image list ####
-monthly_products[[10]] <- mb_img
+monthly_products <- c(monthly_products, mb_img)
 
 ####' ----- Apply mask ####
 masked_images <-
@@ -319,13 +338,13 @@ masked_images <-
 products_list <- c(ee_products$var, "burn", "lulc")
 
 ####' ----- Download images one by one ####
-for(i in seq_along(masked_images)) {
+for(i in seq_along(masked_images)[9:10]) {
 
   image <- ee$Image(masked_images[i])
 
   product <- products_list[i]
 
-  cat('Downloading', product, 'data:', '\n', sep = 1 )
+  cat('Downloading', product, 'data:', '\n', sep = ' ')
 
   # Set download task
   download_mb <-
