@@ -113,7 +113,7 @@ mb_img <-
       sep = '/'
     )
   )$
-  select(ee$List$sequence(15,34), as.character(c(2000:2019)))$
+  select(years - 1985, as.character(years))$
   byte()
 
 ####' ----- Create forest mask ####
