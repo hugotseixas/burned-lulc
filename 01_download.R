@@ -19,8 +19,6 @@
 ## Contact:       hugo.seixas@alumni.usp.br / tameirao.hugo@gmail.com
 ##
 ## Date created:  2020-10-22
-## Last update:   2020-10-22
-## Last tested:   2020-10-22
 ##
 ## Copyright (c) Hugo Tameirao Seixas, 2020
 ##
