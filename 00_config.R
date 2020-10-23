@@ -2,6 +2,8 @@
 ####* ------------------------------ CONFIG ----------------------------- *####
 ## ------------------------------------------------------------------------- ##
 
+#### ---------------------------------------------------- Download options ####
+
 ####' ----- Set your GEE email ####
 gee_email <- "hugo.seixas@alumni.usp.br"
 # You must be registered in Google Earth Engine (GEE) with a Gmail account
@@ -37,7 +39,7 @@ time_span <- tribble(
 
 
 ####' ----- The spatial resolution of the download ####
-scale <- 1000L
+scale <- 5000L
 # Default:
 #   scale <- 30
 # Values ALWAYS have to be followed by the letter L
@@ -54,14 +56,14 @@ tile_dim <- 1536L
 ####' ----- List of variables to download ####
 products <-
   c(
-    "precipitation",   # Chirps daily
+    "precip",          # Chirps daily precipitation (mm)
     "gpp",             # MODIS GPP 8 days
     "evi",             # MODIS EVI 16 days
     "ndvi",            # MODIS NDVI 16 days
     "lai",             # MODIS LAI 8 days
     "fpar",            # MODIS FPAR 8 days
     "et",              # MODIS ET 16 days
-    "lst",            # MODIS LST 8 days
+    "lst",             # MODIS LST 8 days
 
     "" # Do NOT remove or comment this line!
   )
@@ -71,45 +73,57 @@ products <-
 qa_info <-
   tibble::tribble( # Tribble formatted using datapasta package!
        ~filter, ~bit_num, ~bit_value,
-    "filter_1",       0L,         0L,
-    "filter_1",       1L,         0L,
-    "filter_1",       2L,         NA,
-    "filter_1",       3L,         NA,
-    "filter_1",       4L,         NA,
-    "filter_1",       5L,         NA,
-    "filter_1",       6L,         NA,
-    "filter_1",       7L,         NA,
-    "filter_1",       8L,         NA,
-    "filter_1",       9L,         NA,
-    "filter_1",      10L,         NA,
-    "filter_1",      11L,         NA,
-    "filter_1",      12L,         NA,
-    "filter_1",      13L,         NA,
-    "filter_1",      14L,         NA,
-    "filter_1",      15L,         NA,
-    "filter_2",       0L,         0L,
-    "filter_2",       1L,         NA,
-    "filter_2",       2L,         0L,
-    "filter_2",       3L,         0L,
-    "filter_2",       4L,         0L,
-    "filter_2",       5L,         0L,
-    "filter_2",       6L,         0L,
-    "filter_2",       7L,         0L,
-    "filter_3",       0L,         0L,
-    "filter_3",       1L,         0L,
-    "filter_3",       2L,         NA,
-    "filter_3",       3L,         NA,
-    "filter_3",       4L,         NA,
-    "filter_3",       5L,         NA,
-    "filter_3",       6L,         NA,
-    "filter_3",       7L,         NA
+    "f_1",       0L,         0L,
+    "f_1",       1L,         0L,
+    "f_1",       2L,         NA,
+    "f_1",       3L,         NA,
+    "f_1",       4L,         NA,
+    "f_1",       5L,         NA,
+    "f_1",       6L,         NA,
+    "f_1",       7L,         NA,
+    "f_1",       8L,         NA,
+    "f_1",       9L,         NA,
+    "f_1",      10L,         NA,
+    "f_1",      11L,         NA,
+    "f_1",      12L,         NA,
+    "f_1",      13L,         NA,
+    "f_1",      14L,         NA,
+    "f_1",      15L,         NA,
+    "f_2",       0L,         0L,
+    "f_2",       1L,         NA,
+    "f_2",       2L,         0L,
+    "f_2",       3L,         0L,
+    "f_2",       4L,         0L,
+    "f_2",       5L,         0L,
+    "f_2",       6L,         0L,
+    "f_2",       7L,         0L,
+    "f_3",       0L,         0L,
+    "f_3",       1L,         0L,
+    "f_3",       2L,         NA,
+    "f_3",       3L,         NA,
+    "f_3",       4L,         NA,
+    "f_3",       5L,         NA,
+    "f_3",       6L,         NA,
+    "f_3",       7L,         NA
 )
 # There are two filters (since most variables share the same QA flags)
-# "filter_1" is used to filter EVI and NDVI products
-# "filter_2" is used to filter GPP, LAI, FPAR and ET products
-# "filter_3" is used to filter LST products
+# "f_1" is used to filter EVI and NDVI products
+# "f_2" is used to filter GPP, LAI, FPAR and ET products
+# "f_3" is used to filter LST products
 # The value of bits can range from 0 to 1, you may set to NA to ignore
 # Values ALWAYS have to be followed by the letter L
+
+#### -------------------------------------------------- Processing options ####
+
+####' ----- Set multi-thread to transform raster to table ####
+multi_thread <- TRUE
+# Default:
+#   multi_thread <- TRUE
+workers_num <- 10
+# Default:
+#   workers_num <- 10
+# This have the potential to greatly increase the speed of this process
+# However it will demand more memory, use it with caution
 
 ## ------------------------------------------------------------------------- ##
 ####* ------------------------------- END ------------------------------- *####
