@@ -10,9 +10,10 @@ gee_email <- "hugo.seixas@alumni.usp.br"
 # https://earthengine.google.com/
 
 ####' ----- Set the biome to download data from ####
-biome <- 1
+biome <- 1L
 # Default:
 #   biome <- 1
+# Values ALWAYS have to be followed by the letter L
 
 ## The option must be a value from 1 to 6
 ## Each number represents the following biome:
@@ -25,10 +26,21 @@ biome <- 1
 ## 6  ------  Pantanal
 ##
 
+####' ----- Set the time span to download ####
+time_span <- tribble(
+   ~scale,   ~start,    ~end,
+   "year",    2000L,   2019L,
+  "month",        1,     12L
+)
+# Change values of start and end year/month
+# Values ALWAYS have to be followed by the letter L
+
+
 ####' ----- The spatial resolution of the download ####
-scale <- 1000
+scale <- 1000L
 # Default:
 #   scale <- 30
+# Values ALWAYS have to be followed by the letter L
 
 ####' ----- The dimension of tiles to be downloaded from GEE ####
 tile_dim <- 1536L
@@ -97,7 +109,7 @@ qa_info <-
 # "filter_2" is used to filter GPP, LAI, FPAR and ET products
 # "filter_3" is used to filter LST products
 # The value of bits can range from 0 to 1, you may set to NA to ignore
-
+# Values ALWAYS have to be followed by the letter L
 
 ## ------------------------------------------------------------------------- ##
 ####* ------------------------------- END ------------------------------- *####
