@@ -27,6 +27,9 @@ biome <- 1L
 ## 5  ------  Pampa
 ## 6  ------  Pantanal
 ##
+# Bear in mind that all the codes were developed aiming to perform the
+# analysis over the Amazon biome, and may not be appropriate to be applied
+# in other regions
 
 ####' ----- Set the time span to download ####
 time_span <- tribble(
