@@ -380,7 +380,7 @@ walk2(
   function(id, name) {
     drive_download(
       file = as_id(id),
-      path = glue::glue('data/test/{name}'),
+      path = glue::glue('data/original_raster/{name}'),
       overwrite = TRUE
     )
   }
