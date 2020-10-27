@@ -115,7 +115,7 @@ raster_to_table <- function(raster_var) {
 
 ####' ----- Get name of variables ####
 variables <- dir_ls('data/original_raster/') %>%
-  str_extract("(?<=raster/)[^-]+") %>%
+  str_extract("(?<=raster/)[^-|.]+") %>%
   as_tibble() %>%
   distinct(value) %>%
   pull(value)
