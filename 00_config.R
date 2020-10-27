@@ -67,10 +67,12 @@ products <-
     "fpar",            # MODIS FPAR 8 days
     "et",              # MODIS ET 16 days
     "lst",             # MODIS LST 8 days
+    "burn",            # MODIS monthly burned area
 
     "" # Do NOT remove or comment this line!
   )
 # Comment a variable line to remove it from the routine
+# It's advised to always keep the "burn" variable
 
 ####' ----- Set quality filter for each product ####
 qa_info <-
@@ -107,7 +109,15 @@ qa_info <-
     "f_3",       4L,         NA,
     "f_3",       5L,         NA,
     "f_3",       6L,         NA,
-    "f_3",       7L,         NA
+    "f_3",       7L,         NA,
+    "f_4",       0L,         1L,
+    "f_4",       1L,         1L,
+    "f_4",       2L,         NA,
+    "f_4",       3L,         NA,
+    "f_4",       4L,         NA,
+    "f_4",       5L,         NA,
+    "f_4",       6L,         NA,
+    "f_4",       7L,         NA
 )
 # There are two filters (since most variables share the same QA flags)
 # "f_1" is used to filter EVI and NDVI products
