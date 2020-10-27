@@ -206,23 +206,24 @@ calc_monthly_composite <-
                 months,
                 function(m) {
 
-                  if(product == "precip") {
+                  if (product == "precip") {
 
                     return(
                       var$
                         filter(ee$Filter$calendarRange(y, y, 'year'))$
                         filter(ee$Filter$calendarRange(m, m, 'month'))$
                         sum()$
-                        rename(glue('{y}-{m}'))
+                        rename(glue('{y}_{m}'))
                     )
 
-                  } else if(product == 'burn') {
+                  } else if (product == 'burn') {
 
                     return(
                       var$
                         filter(ee$Filter$calendarRange(y, y, 'year'))$
                         filter(ee$Filter$calendarRange(m, m, 'month'))$
-                        rename(glue('{y}-{m}'))
+                        max()$
+                        rename(glue('{y}_{m}'))
                     )
 
                   } else {
@@ -233,7 +234,7 @@ calc_monthly_composite <-
                         filter(ee$Filter$calendarRange(y, y, 'year'))$
                         filter(ee$Filter$calendarRange(m, m, 'month'))$
                         mean()$
-                        rename(glue('{y}-{m}'))
+                        rename(glue('{y}_{m}'))
                     )
 
                   }
@@ -340,15 +341,18 @@ masked_images <-
     function(image) { return(image$updateMask(mask)) }
   )
 
+####' ----- Add mask to image list ####
+all_products <- c(masked_images, mask)
+
 #### ----------------------------------------------------- Download images ####
 
 ####' ----- List products ####
-products_list <- c(ee_products$var, "burn", "lulc")
+products_list <- c(ee_products$var, "lulc", "mask")
 
 ####' ----- Download images one by one ####
-for(i in seq_along(masked_images)) {
+for(i in seq_along(all_products)) {
 
-  image <- ee$Image(masked_images[i])
+  image <- ee$Image(all_products[i])
 
   product <- products_list[i]
 
