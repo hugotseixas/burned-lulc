@@ -73,78 +73,7 @@ time_span %<>%
 years <- time_span[[1]]
 months <- time_span[[2]]
 
-#### ----------------------------------- Create masks of burns and forests ####
-
-####' ----- Load MODIS burned area ####
-modis_burned <- ee$ImageCollection("MODIS/006/MCD64A1")
-
-####' ----- Get projection from modis ####
-modis_proj <- modis_burned$first()$projection()
-
-####' ----- Create annual burn mask ####
-b_mask <-
-  ee$Image(
-    map(
-      years,
-      function(y) {
-        return(
-          modis_burned$
-            filter(ee$Filter$calendarRange(y, y, 'year'))$
-            select('BurnDate')$
-            sum()$
-            set('year', y)$
-            remap(from = list(0), to = list(0), defaultValue = 1)$
-            byte()$
-            rename(as.character(y))
-        )
-      }
-    )
-  )
-
-####' ----- Load MapBiomas collection 5 ####
-mb_img <-
-  ee$Image(
-    paste(
-      'projects',
-      'mapbiomas-workspace',
-      'public',
-      'collection5',
-      'mapbiomas_collection50_integration_v1',
-      sep = '/'
-    )
-  )$
-  select(years - 1985, as.character(years))$
-  byte()
-
-####' ----- Create forest mask ####
-f_mask <-
-  ee$Image(
-    map(
-      mb_img$bandNames()$getInfo(),
-      function(band_name) {
-        return(
-          mb_img$
-            select(band_name)$
-            remap(from = list(3L), to = list(1L), defaultValue = 0)$
-            rename(as.character(band_name))
-        )
-      }
-    )
-  )
-
-####' ----- Reproject and reduce resolution ####
-f_mask <-
-  f_mask$
-  reproject(crs = modis_proj)$
-  reduceResolution(reducer = ee$Reducer$mode(), bestEffort = TRUE)
-
-####' ----- Create mask for both variables ####
-mask <-
-  b_mask$
-  updateMask(f_mask)$
-  reduce(ee$Reducer$max())
-
-#### ------------------------------------------------- Load other products ####
+#### ------------------------------------------------------- Load products ####
 
 ####' ----- Create list of products ####
 ee_products <-
@@ -157,7 +86,8 @@ ee_products <-
        "lai",    "MODIS/006/MOD15A2H", "FparLai_QC",   "f_2",       "Lai_500m",
       "fpar",    "MODIS/006/MOD15A2H", "FparLai_QC",   "f_2",      "Fpar_500m",
         "et",     "MODIS/006/MOD16A2",      "ET_QC",   "f_2",             "ET",
-       "lst",     "MODIS/006/MOD11A2",     "QC_Day",   "f_3",    "LST_Day_1km"
+       "lst",     "MODIS/006/MOD11A2",     "QC_Day",   "f_3",    "LST_Day_1km",
+      "burn",     "MODIS/006/MCD64A1",         "QA",   "f_4",       "BurnDate"
   )
 
 ####' ----- Filter products list ####
@@ -229,7 +159,7 @@ apply_quality_filter <-
                 )
               )
 
-            return(band$updateMask(qa_mask$min()))
+            return(band$updateMask(qa_mask$max()))
 
           }
         )
@@ -241,7 +171,7 @@ apply_quality_filter <-
 
     }
 
-}
+  }
 
 ####' ----- Apply quality mask ####
 filtered_products <-
@@ -270,10 +200,12 @@ calc_monthly_composite <-
         map(
           years,
           function(y) {
+
             return(
               map(
                 months,
                 function(m) {
+
                   if(product == "precip") {
 
                     return(
@@ -281,6 +213,15 @@ calc_monthly_composite <-
                         filter(ee$Filter$calendarRange(y, y, 'year'))$
                         filter(ee$Filter$calendarRange(m, m, 'month'))$
                         sum()$
+                        rename(glue('{y}-{m}'))
+                    )
+
+                  } else if(product == 'burn') {
+
+                    return(
+                      var$
+                        filter(ee$Filter$calendarRange(y, y, 'year'))$
+                        filter(ee$Filter$calendarRange(m, m, 'month'))$
                         rename(glue('{y}-{m}'))
                     )
 
@@ -300,6 +241,7 @@ calc_monthly_composite <-
                 }
               )
             )
+
           }
         )
       )
@@ -315,12 +257,78 @@ monthly_products <-
     calc_monthly_composite
   )
 
+#### ----------------------------------- Create masks of burns and forests ####
+
+####' ----- Load MODIS burned area ####
+modis_burned <- ee$ImageCollection("MODIS/006/MCD64A1")
+
+####' ----- Get projection from modis ####
+modis_proj <- modis_burned$first()$projection()
+
+####' ----- Create annual burn mask ####
+b_mask <-
+  ee$Image(
+    map(
+      years,
+      function(y) {
+        return(
+          modis_burned$
+            filter(ee$Filter$calendarRange(y, y, 'year'))$
+            select('BurnDate')$
+            sum()$
+            set('year', y)$
+            remap(from = list(0), to = list(0), defaultValue = 1)$
+            byte()$
+            rename(as.character(y))
+        )
+      }
+    )
+  )
+
+####' ----- Load MapBiomas collection 5 ####
+mb_img <-
+  ee$Image(
+    paste(
+      'projects',
+      'mapbiomas-workspace',
+      'public',
+      'collection5',
+      'mapbiomas_collection50_integration_v1',
+      sep = '/'
+    )
+  )$
+  select(years - 1985, as.character(years))$
+  byte()
+
+####' ----- Create forest mask ####
+f_mask <-
+  ee$Image(
+    map(
+      mb_img$bandNames()$getInfo(),
+      function(band_name) {
+        return(
+          mb_img$
+            select(band_name)$
+            remap(from = list(3L), to = list(1L), defaultValue = 0)$
+            rename(as.character(band_name))
+        )
+      }
+    )
+  )
+
+####' ----- Reproject and reduce resolution ####
+f_mask <-
+  f_mask$
+  reproject(crs = modis_proj)$
+  reduceResolution(reducer = ee$Reducer$mode(), bestEffort = TRUE)
+
+####' ----- Create mask for both variables ####
+mask <-
+  b_mask$
+  updateMask(f_mask)$
+  reduce(ee$Reducer$max())
+
 #### --------------------------------------------------------- Apply masks ####
-
-modis_burned <- modis_burned$select('BurnDate')$toBands()
-
-####' ----- Add modis burned area to list of products ####
-monthly_products <- c(monthly_products, modis_burned)
 
 ####' ----- Add MapBiomas image to image list ####
 monthly_products <- c(monthly_products, mb_img)
@@ -338,7 +346,7 @@ masked_images <-
 products_list <- c(ee_products$var, "burn", "lulc")
 
 ####' ----- Download images one by one ####
-for(i in seq_along(masked_images)[9:10]) {
+for(i in seq_along(masked_images)) {
 
   image <- ee$Image(masked_images[i])
 
