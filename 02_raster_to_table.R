@@ -50,10 +50,17 @@ source("00_config.R")
 tic()
 
 ####' ----- Convert mask raster to table ####
-mask <- raster('data/original_raster/mask.tif') %>%
+mask <-
+  raster('data/original_raster/mask.tif') %>%
   tabularaster::as_tibble(xy = TRUE, cell = TRUE) %>%
   filter(!(cellvalue == 0)) %>%
   select(-cellvalue)
+
+write_delim(
+  mask,
+  'data/tables/mask.txt',
+  delim = ','
+)
 
 ####' ----- Function to transform raster data to table ####
 raster_to_table <- function(raster_var) {
@@ -96,7 +103,8 @@ raster_to_table <- function(raster_var) {
       raster_chunk <- raster(path, band = band_num)
 
       # Transform to table and join with mask table
-      raster_table <- raster_chunk %>%
+      raster_table <-
+        raster_chunk %>%
         tabularaster::as_tibble(xy = TRUE, cell = TRUE) %>%
         right_join(mask, by = c('x', 'y', 'cellindex')) %>%
         mutate(
@@ -122,7 +130,8 @@ raster_to_table <- function(raster_var) {
 }
 
 ####' ----- Get name of variables ####
-variables <- dir_ls('data/original_raster/') %>%
+variables <-
+  dir_ls('data/original_raster/') %>%
   str_extract("(?<=raster/)[^-|.]+") %>%
   as_tibble() %>%
   filter(value != 'mask') %>%
@@ -134,7 +143,10 @@ if (multi_thread == TRUE) {
 
   plan(strategy = "multisession", workers = workers_num)
 
-  future_walk(variables, raster_to_table, .options = furrr_options(seed = NULL))
+  future_walk(
+    variables, raster_to_table,
+    .options = furrr_options(seed = NULL)
+  )
 
 } else if (multi_thread == FALSE) {
 
