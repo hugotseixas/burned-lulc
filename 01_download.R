@@ -37,6 +37,7 @@ library(sf)
 library(geobr)
 library(glue)
 library(magrittr)
+library(fs)
 library(tidyverse)
 ##
 ## ------------------------------------------------------------------------- ##
@@ -59,8 +60,6 @@ biomes <-
   read_biomes(simplified = TRUE) %>%
   filter(code_biome == biome)
 
-cat('Download MapBiomas data for', biomes$name_biome)
-
 ####' ----- Set region of interest ####
 aoi <- sf_as_ee(biomes) # Can take some minutes to import the polygon
 
@@ -78,16 +77,16 @@ months <- time_span[[2]]
 ####' ----- Create list of products ####
 ee_products <-
   tribble(
-        ~var,                   ~prod,     ~qa_band, ~filter,            ~band,
-    "precip", "UCSB-CHG/CHIRPS/DAILY",           NA,      NA,  "precipitation",
-       "gpp",    "MODIS/006/MOD17A2H",     "Psn_QC",   "f_2",            "Gpp",
-       "evi",     "MODIS/006/MOD13A1", "DetailedQA",   "f_1",            "EVI",
-      "ndvi",     "MODIS/006/MOD13A1", "DetailedQA",   "f_1",           "NDVI",
-       "lai",    "MODIS/006/MOD15A2H", "FparLai_QC",   "f_2",       "Lai_500m",
-      "fpar",    "MODIS/006/MOD15A2H", "FparLai_QC",   "f_2",      "Fpar_500m",
-        "et",     "MODIS/006/MOD16A2",      "ET_QC",   "f_2",             "ET",
-       "lst",     "MODIS/006/MOD11A2",     "QC_Day",   "f_3",    "LST_Day_1km",
-      "burn",     "MODIS/006/MCD64A1",         "QA",   "f_4",       "BurnDate"
+    ~var, ~prod, ~qa_band, ~filter, ~band, ~scale,
+    "precip", "UCSB-CHG/CHIRPS/DAILY", NA, NA, "precipitation", 1,
+    "gpp", "MODIS/006/MOD17A2H", "Psn_QC", "f_2", "Gpp", 0.0001,
+    "evi", "MODIS/006/MOD13A1", "DetailedQA", "f_1", "EVI", 0.0001,
+    "ndvi", "MODIS/006/MOD13A1", "DetailedQA", "f_1", "NDVI", 0.0001,
+    "lai", "MODIS/006/MOD15A2H", "FparLai_QC", "f_2", "Lai_500m", 0.1,
+    "fpar", "MODIS/006/MOD15A2H", "FparLai_QC", "f_2", "Fpar_500m", 0.01,
+    "et", "MODIS/006/MOD16A2", "ET_QC",   "f_2", "ET", 0.1,
+    "lst", "MODIS/006/MOD11A2", "QC_Day",   "f_3", "LST_Day_1km", 0.02,
+    "burn", "MODIS/006/MCD64A1", "QA",   "f_4", "BurnDate", 1
   )
 
 ####' ----- Filter products list ####
@@ -98,7 +97,11 @@ ee_products %<>%
 ee_product_list <-
   map(
     ee_products$prod,
-    function(prod) { ee$ImageCollection(prod) }
+    function(prod) {
+
+      ee$ImageCollection(prod)
+
+    }
   )
 
 #### ------------------------------------------- Perform quality filtering ####
@@ -193,7 +196,7 @@ filtered_products <-
 
 ####' ----- Function to extract monthly values ####
 calc_monthly_composite <-
-  function(var, product) {
+  function(product, var_name) {
 
     return(
       ee$Image(
@@ -206,20 +209,20 @@ calc_monthly_composite <-
                 months,
                 function(m) {
 
-                  if (product == "precip") {
+                  if (var_name == "precip") {
 
                     return(
-                      var$
+                      product$
                         filter(ee$Filter$calendarRange(y, y, 'year'))$
                         filter(ee$Filter$calendarRange(m, m, 'month'))$
                         sum()$
                         rename(glue('{y}_{m}'))
                     )
 
-                  } else if (product == 'burn') {
+                  } else if (var_name == 'burn') {
 
                     return(
-                      var$
+                      product$
                         filter(ee$Filter$calendarRange(y, y, 'year'))$
                         filter(ee$Filter$calendarRange(m, m, 'month'))$
                         max()$
@@ -228,9 +231,8 @@ calc_monthly_composite <-
 
                   } else {
 
-
                     return(
-                      var$
+                      product$
                         filter(ee$Filter$calendarRange(y, y, 'year'))$
                         filter(ee$Filter$calendarRange(m, m, 'month'))$
                         mean()$
@@ -258,6 +260,14 @@ monthly_products <-
     calc_monthly_composite
   )
 
+####' ----- Apply scale factor ####
+monthly_products <-
+  map2(
+    .x = monthly_products,
+    .y = ee_products$scale,
+    function(product, scale) {product$multiply(scale)}
+  )
+
 #### ----------------------------------- Create masks of burns and forests ####
 
 ####' ----- Load MODIS burned area ####
@@ -265,26 +275,6 @@ modis_burned <- ee$ImageCollection("MODIS/006/MCD64A1")
 
 ####' ----- Get projection from modis ####
 modis_proj <- modis_burned$first()$projection()
-
-####' ----- Create annual burn mask ####
-b_mask <-
-  ee$Image(
-    map(
-      years,
-      function(y) {
-        return(
-          modis_burned$
-            filter(ee$Filter$calendarRange(y, y, 'year'))$
-            select('BurnDate')$
-            sum()$
-            set('year', y)$
-            remap(from = list(0), to = list(0), defaultValue = 1)$
-            byte()$
-            rename(as.character(y))
-        )
-      }
-    )
-  )
 
 ####' ----- Load MapBiomas collection 5 ####
 mb_img <-
@@ -297,9 +287,22 @@ mb_img <-
       'mapbiomas_collection50_integration_v1',
       sep = '/'
     )
-  )$
-  select(years - 1985, as.character(years))$
-  byte()
+  )
+
+####' ----- Get only the available years from MapBiomas ####
+mb_bands <-
+  (years - 1985) %>%
+  as_tibble() %>%
+  inner_join(
+    as_tibble(seq_along(mb_img$bandNames()$getInfo()) - 1),
+    by = "value"
+  ) %>%
+  pull(value)
+
+####' ----- Select MapBiomas bands ####
+mb_img <-
+  mb_img$
+  select(mb_bands, as.character(mb_bands + 1985))
 
 ####' ----- Create forest mask ####
 f_mask <-
@@ -323,11 +326,34 @@ f_mask <-
   reproject(crs = modis_proj)$
   reduceResolution(reducer = ee$Reducer$mode(), bestEffort = TRUE)
 
+####' ----- Create annual burn mask ####
+b_mask <-
+  ee$Image(
+    map(
+      (mb_bands + 1985),
+      function(y) {
+        return(
+          modis_burned$
+            filter(ee$Filter$calendarRange(y, y, 'year'))$
+            select('BurnDate')$
+            sum()$
+            set('year', y)$
+            remap(from = list(0), to = list(0), defaultValue = 1)$
+            byte()$
+            rename(as.character(y))
+        )
+      }
+    )
+  )
+
 ####' ----- Create mask for both variables ####
 mask <-
   b_mask$
   updateMask(f_mask)$
   reduce(ee$Reducer$max())
+
+####' ----- Create expanded mask ####
+expanded_mask <- mask$focal_max(radius = 3)
 
 #### --------------------------------------------------------- Apply masks ####
 
@@ -338,21 +364,24 @@ monthly_products <- c(monthly_products, mb_img)
 masked_images <-
   map(
     monthly_products,
-    function(image) { return(image$updateMask(mask)) }
+    function(image) { return(image$updateMask(expanded_mask)) }
   )
 
-####' ----- Add mask to image list ####
-all_products <- c(masked_images, mask)
+####' ----- Add masks to image list ####
+all_products <- c(masked_images, mask, expanded_mask)
 
 #### ----------------------------------------------------- Download images ####
 
 ####' ----- List products ####
-products_list <- c(ee_products$var, "lulc", "mask")
+products_list <- c(ee_products$var, "lulc", "initial_mask", "expanded_mask")
+
+####' ----- Delete googledrive download folder ####
+if (clear_driver_folder == TRUE) { drive_rm('burned_lulc') }
 
 ####' ----- Download images one by one ####
 for(i in seq_along(all_products)) {
 
-  image <- ee$Image(all_products[i])
+  image <- ee$Image(all_products[[i]])
 
   product <- products_list[i]
 
@@ -378,23 +407,28 @@ for(i in seq_along(all_products)) {
   download_mb$start()
 
   # Monitor the download
-  ee_monitoring(download_mb, task_time = 60)
+  ee_monitoring(download_mb, task_time = 10)
 
 }
 
 ####' ----- List files in drive ####
 drive_files <- drive_ls('/burned_lulc')
 
+####' ----- Create local download dir ####
+dir_create("data/original_raster")
+
 ####' ----- Download files from drive to project folder ####
 walk2(
   .x = drive_files$id,
   .y = drive_files$name,
   function(id, name) {
+
     drive_download(
       file = as_id(id),
       path = glue::glue('data/original_raster/{name}'),
       overwrite = TRUE
     )
+
   }
 )
 
