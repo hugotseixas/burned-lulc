@@ -11,6 +11,15 @@ gee_email <- "hugo.seixas@alumni.usp.br"
 # GEE home page:
 # https://earthengine.google.com/
 
+####' ----- Clear Google Drive target download folder? ####
+clear_driver_folder <- FALSE
+# Default:
+#   clear_driver_folder <- FALSE
+# This will delete the folder named "burned_lulc" from your google drive folder
+# if set TRUE. When downloading data, make sure that this folder is empty
+# since Google Drive create duplicates of files with same name
+# DUPLICATE RASTER FILES MAY GENERATE ERRORS IN THE FOLLOWING CODES
+
 ####' ----- Set the biome to download data from ####
 biome <- 1L
 # Default:
@@ -34,7 +43,7 @@ biome <- 1L
 ####' ----- Set the time span to download ####
 time_span <- tribble(
    ~scale,   ~start,    ~end,
-   "year",    2000L,   2019L,
+   "year",    2000L,   2020L,
   "month",        1,     12L
 )
 # Change values of start and end year/month
@@ -42,19 +51,19 @@ time_span <- tribble(
 
 
 ####' ----- The spatial resolution of the download ####
-scale <- 5000L
+scale <- 1000L
 # Default:
-#   scale <- 30
+#   scale <- 500L
 # Values ALWAYS have to be followed by the letter L
 
 ####' ----- The dimension of tiles to be downloaded from GEE ####
-tile_dim <- 1536L
+tile_dim <- 5120L
 # Values have to be multiple of 256
 # Values ALWAYS have to be followed by the letter L
 # You can use tile_dim <- NULL to let GEE to choose the size automatically
 # Bigger values will result in bigger tiles, demanding more memory
 # Default:
-#   tile_dim <- 1280L
+#   tile_dim <- 1536L
 
 ####' ----- List of variables to download ####
 products <-
@@ -131,10 +140,10 @@ qa_info <-
 ####' ----- Set multi-thread to transform raster to table ####
 multi_thread <- TRUE
 # Default:
-#   multi_thread <- TRUE
-workers_num <- 10
+#   multi_thread <- FALSE
+workers_num <- 16L
 # Default:
-#   workers_num <- 10
+#   workers_num <- 10L
 # This have the potential to greatly increase the speed of this process
 # However it will demand more memory, use it with caution
 
