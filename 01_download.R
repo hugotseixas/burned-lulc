@@ -1,36 +1,24 @@
-## ------------------------------------------------------------------------- ##
-####* ------------------------------- HEADER ---------------------------- *####
-## ------------------------------------------------------------------------- ##
-##
-#### Description ####
-##
-## Script name:   Download images
-##
-## Description:   This routine is responsible for downloading data from
-##                MapBiomas, CHIRPS, and MODIS products using GEE.
-##                Before downloading the data is filtered based on quality
-##                flags. After filtering we calculate monthly composites
-##                for each variable. Downloaded files will be stored in the
-##                working dir.
-##
-##
-##
-## Author:        Hugo Tameirao Seixas
-## Contact:       hugo.seixas@alumni.usp.br / tameirao.hugo@gmail.com
-##
-## Date created:  2020-10-22
-##
-## Copyright (c) Hugo Tameirao Seixas, 2020
-##
-## ------------------------------------------------------------------------- ##
-##
-## Notes:         Check the "00_config.R" file to change options for this
-##                routine.
-##
-## ------------------------------------------------------------------------- ##
-##
-#### Libraries ####
-##
+# HEADER ----------------------------------------------------------------------
+#
+# Title:          Download data
+# Description:    This routine is responsible for downloading data from
+#                 MapBiomas, CHIRPS, and MODIS products using GEE.
+#                 Before downloading the data is filtered based on quality
+#                 flags. After filtering we calculate monthly composites
+#                 for each variable. Downloaded files will be stored in the
+#                 working dir.
+#
+# Author:         Hugo Tameirao Seixas
+# Contact:        hugo.seixas@alumni.usp.br / tameirao.hugo@gmail.com
+# Date:           2020-10-22
+#
+# Notes:         Check the "00_config.R" file to change options for this
+#                routine.
+#
+# LIBRARIES -------------------------------------------------------------------
+#
+library(geojsonsf)
+library(geojson)
 library(rgee)
 library(googledrive)
 library(sf)
@@ -39,42 +27,37 @@ library(glue)
 library(magrittr)
 library(fs)
 library(tidyverse)
-##
-## ------------------------------------------------------------------------- ##
-##
-#### Options ####
-##
+#
+# OPTIONS ---------------------------------------------------------------------
+#
 source('00_config.R')
-##
-## ------------------------------------------------------------------------- ##
-####* ------------------------------- CODE ------------------------------ *####
-## ------------------------------------------------------------------------- ##
+#
+# DATA SETUP ------------------------------------------------------------------
 
-#### ---------------------------- Start GEE api and set region of interest ####
-
-####' ----- Initialize GEE ####
+## Initialize GEE ----
 ee_Initialize(email = gee_email, drive = TRUE)
 
-####' ----- Load region of interest ####
+# Load region of interest ----
 biomes <-
   read_biomes(simplified = TRUE) %>%
   filter(code_biome == biome)
 
-####' ----- Set region of interest ####
+# Set region of interest ----
 aoi <- sf_as_ee(biomes) # Can take some minutes to import the polygon
 
-####' ----- Set dates to be extracted ####
+# Set dates to be extracted ----
 time_span %<>%
   rowwise() %>%
   mutate(time_range = list(c(start:end))) %>%
   pull(time_range)
 
+# Extract years and months
 years <- time_span[[1]]
 months <- time_span[[2]]
 
-#### ------------------------------------------------------- Load products ####
+# LOAD PRODUCTS ---------------------------------------------------------------
 
-####' ----- Create list of products ####
+## Create list of products ----
 ee_products <-
   tribble(
     ~var, ~prod, ~qa_band, ~filter, ~band, ~scale,
@@ -84,16 +67,16 @@ ee_products <-
     "ndvi", "MODIS/006/MOD13A1", "DetailedQA", "f_1", "NDVI", 0.0001,
     "lai", "MODIS/006/MOD15A2H", "FparLai_QC", "f_2", "Lai_500m", 0.1,
     "fpar", "MODIS/006/MOD15A2H", "FparLai_QC", "f_2", "Fpar_500m", 0.01,
-    "et", "MODIS/006/MOD16A2", "ET_QC",   "f_2", "ET", 0.1,
-    "lst", "MODIS/006/MOD11A2", "QC_Day",   "f_3", "LST_Day_1km", 0.02,
-    "burn", "MODIS/006/MCD64A1", "QA",   "f_4", "BurnDate", 1
+    "et", "MODIS/006/MOD16A2", "ET_QC", "f_2", "ET", 0.1,
+    "lst", "MODIS/006/MOD11A2", "QC_Day", "f_3", "LST_Day_1km", 0.02,
+    "burn", "MODIS/006/MCD64A1", "QA", "f_4", "BurnDate", 1
   )
 
-####' ----- Filter products list ####
+## Filter products list ----
 ee_products %<>%
   filter(var %in% products)
 
-####' ----- Load products ####
+## Load products in GEE ----
 ee_product_list <-
   map(
     ee_products$prod,
@@ -104,16 +87,16 @@ ee_product_list <-
     }
   )
 
-#### ------------------------------------------- Perform quality filtering ####
+# PERFORM QUALITY FILTERING ---------------------------------------------------
 
-####' ----- Create bit list ####
+## Create bit list ----
 bit_list <-
   tibble(
     bit = map(c(0:15), function(bit) { ee$Number(2)$pow(bit)$int() }),
     bit_num = c(0:15)
   )
 
-####' ----- Join QA information ####
+## Join QA information ----
 bit_list <-
   qa_info %>%
   left_join(ee_products, by = 'filter') %>%
@@ -121,7 +104,7 @@ bit_list <-
   drop_na() %>%
   arrange(var)
 
-####' ----- Function to filter data by quality ####
+## Function to filter data by quality ----
 apply_quality_filter <-
   function(image, product, qa_band) {
 
@@ -176,7 +159,7 @@ apply_quality_filter <-
 
   }
 
-####' ----- Apply quality mask ####
+## Apply quality mask ----
 filtered_products <-
   map2(
     .x = ee_product_list,
@@ -184,9 +167,9 @@ filtered_products <-
     apply_quality_filter
   )
 
-#### ---------------------------------------- Calculate monthly composites ####
+# CALCULATE MONTHLY COMPOSITES ------------------------------------------------
 
-####' ----- Select bands ####
+## Select bands ----
 filtered_products <-
   map2(
     .x = filtered_products,
@@ -194,7 +177,7 @@ filtered_products <-
     function(image, band) { return(image$select(band)) }
   )
 
-####' ----- Function to extract monthly values ####
+## Function to extract monthly values ----
 calc_monthly_composite <-
   function(product, var_name) {
 
@@ -252,7 +235,7 @@ calc_monthly_composite <-
 
   }
 
-####' ----- Calculate monthly composites ####
+## Calculate monthly composites ----
 monthly_products <-
   map2(
     .x = filtered_products,
@@ -260,7 +243,7 @@ monthly_products <-
     calc_monthly_composite
   )
 
-####' ----- Apply scale factor ####
+## Apply scale factor ----
 monthly_products <-
   map2(
     .x = monthly_products,
@@ -268,15 +251,15 @@ monthly_products <-
     function(product, scale) {product$multiply(scale)}
   )
 
-#### ----------------------------------- Create masks of burns and forests ####
+# CREATE MASKS OF BURNS AND FORESTS -------------------------------------------
 
-####' ----- Load MODIS burned area ####
+## Load MODIS burned area ----
 modis_burned <- ee$ImageCollection("MODIS/006/MCD64A1")
 
-####' ----- Get projection from modis ####
+## Get projection from MODIS ----
 modis_proj <- modis_burned$first()$projection()
 
-####' ----- Load MapBiomas collection 5 ####
+## Load MapBiomas collection 5 ----
 mb_img <-
   ee$Image(
     paste(
@@ -289,7 +272,7 @@ mb_img <-
     )
   )
 
-####' ----- Get only the available years from MapBiomas ####
+## Get only the available years from MapBiomas ----
 mb_bands <-
   (years - 1985) %>%
   as_tibble() %>%
@@ -299,12 +282,12 @@ mb_bands <-
   ) %>%
   pull(value)
 
-####' ----- Select MapBiomas bands ####
+## Select MapBiomas bands ----
 mb_img <-
   mb_img$
   select(mb_bands, as.character(mb_bands + 1985))
 
-####' ----- Create forest mask ####
+## Create forest mask ----
 f_mask <-
   ee$Image(
     map(
@@ -320,13 +303,13 @@ f_mask <-
     )
   )
 
-####' ----- Reproject and reduce resolution ####
+## Reproject and reduce resolution ----
 f_mask <-
   f_mask$
   reproject(crs = modis_proj)$
   reduceResolution(reducer = ee$Reducer$mode(), bestEffort = TRUE)
 
-####' ----- Create annual burn mask ####
+## Create annual burn mask ----
 b_mask <-
   ee$Image(
     map(
@@ -346,39 +329,59 @@ b_mask <-
     )
   )
 
-####' ----- Create mask for both variables ####
+## Create mask for both variables ----
 mask <-
   b_mask$
   updateMask(f_mask)$
   reduce(ee$Reducer$max())
 
-####' ----- Create expanded mask ####
-expanded_mask <- mask$focal_max(radius = 3)
+## Create expanded mask ----
+expanded_mask <- mask$focal_max(radius = 2)
 
-#### --------------------------------------------------------- Apply masks ####
+## Create "ring" mask ----
+# It avoids touching cells between masks
+ring_mask <-
+  expanded_mask$focal_max(radius = 3)$
+  updateMask(
+    expanded_mask$
+      unmask(0)$
+      remap(from = list(1), to = list(0), defaultValue = 1)
+  )
 
-####' ----- Add MapBiomas image to image list ####
+## Merge masks ----
+expanded_mask <- ring_mask$unmask(0)$add(mask$unmask(0))$clip(aoi)
+
+# APPLY MASKS ----
+
+## Add MapBiomas image to image list ----
 monthly_products <- c(monthly_products, mb_img)
 
-####' ----- Apply mask ####
+## Apply mask ----
 masked_images <-
   map(
     monthly_products,
     function(image) { return(image$updateMask(expanded_mask)) }
   )
 
-####' ----- Add masks to image list ####
+## Add masks to image list ----
 all_products <- c(masked_images, mask, expanded_mask)
 
-#### ----------------------------------------------------- Download images ####
+## DOWNLOAD IMAGES ----
 
-####' ----- List products ####
+## List products ----
 products_list <- c(ee_products$var, "lulc", "initial_mask", "expanded_mask")
 
-####' ----- Delete googledrive download folder ####
+## Delete googledrive download folder ----
 if (clear_driver_folder == TRUE) { drive_rm('burned_lulc') }
 
-####' ----- Download images one by one ####
+## Create folders ----
+drive_mkdir(name = "burned_lulc")
+walk(
+  products_list,
+  function(product) {drive_mkdir(glue("burned_lulc/{product}"))}
+)
+
+## Download images one by one ----
 for(i in seq_along(all_products)) {
 
   image <- ee$Image(all_products[[i]])
@@ -392,7 +395,7 @@ for(i in seq_along(all_products)) {
     ee_image_to_drive(
       image = image$clip(aoi),
       description = glue("{product}"),
-      folder = "burned_lulc",
+      folder = glue("{product}"),
       timePrefix = FALSE,
       region = aoi$geometry()$bounds(),
       scale = scale,
@@ -411,27 +414,34 @@ for(i in seq_along(all_products)) {
 
 }
 
-####' ----- List files in drive ####
-drive_files <- drive_ls('/burned_lulc')
-
-####' ----- Create local download dir ####
+## Create local download dir ----
 dir_create("data/original_raster")
 
-####' ----- Download files from drive to project folder ####
-walk2(
-  .x = drive_files$id,
-  .y = drive_files$name,
-  function(id, name) {
+## Download files from drive to project folder ----
+for(i in seq_along(all_products)) {
 
-    drive_download(
-      file = as_id(id),
-      path = glue::glue('data/original_raster/{name}'),
-      overwrite = TRUE
-    )
+  product <- products_list[i]
 
-  }
-)
+  cat('Downloading', product, 'data:', '\n', sep = ' ')
 
-## ------------------------------------------------------------------------- ##
-####* ------------------------------- END ------------------------------- *####
-## ------------------------------------------------------------------------- ##
+  # List files in drive
+  drive_files <- drive_ls(glue('/burned_lulc/{product}'))
+
+  # Save files to local folder
+  walk2(
+    .x = drive_files$id,
+    .y = drive_files$name,
+    function(id, name) {
+
+      drive_download(
+        file = as_id(id),
+        path = glue::glue('data/original_raster/{name}'),
+        overwrite = TRUE
+      )
+
+    }
+  )
+
+  Sys.sleep(300)
+
+}
