@@ -1,17 +1,21 @@
-## ------------------------------------------------------------------------- ##
-####* ------------------------------ CONFIG ----------------------------- *####
-## ------------------------------------------------------------------------- ##
+# CONFIG ----------------------------------------------------------------------
+#
+# This is a configuration file that sets options and variables that will be
+# used in the "01_download.R" and "02_db_export_mask.R".
+# The options "gee_email" and "clear_driver_folder" are safe
+# to be changed ("gee_email" is actually essential to run the download script).
+# However, it is not guaranteed that changes in the other options will generate
+# valid results, changing them may even break the codes. They are available
+# here to facilitate testing and future developments.
 
-#### ---------------------------------------------------- Download options ####
-
-####' ----- Set your GEE email ####
+# Set your GEE email ----------------------------------------------------------
 gee_email <- "hugo.seixas@alumni.usp.br"
 # You must be registered in Google Earth Engine (GEE) with a Gmail account
 # To have acces to the google drive to download the data
 # GEE home page:
 # https://earthengine.google.com/
 
-####' ----- Clear Google Drive target download folder? ####
+# Clear Google Drive target download folder? ----------------------------------
 clear_driver_folder <- FALSE
 # Default:
 #   clear_driver_folder <- FALSE
@@ -20,7 +24,7 @@ clear_driver_folder <- FALSE
 # since Google Drive create duplicates of files with same name
 # DUPLICATE RASTER FILES MAY GENERATE ERRORS IN THE FOLLOWING CODES
 
-####' ----- Set the biome to download data from ####
+# Set the biome to download data from -----------------------------------------
 biome <- 1L
 # Default:
 #   biome <- 1
@@ -40,7 +44,7 @@ biome <- 1L
 # analysis over the Amazon biome, and may not be appropriate to be applied
 # in other regions
 
-####' ----- Set the time span to download ####
+# Set the time span to download -----------------------------------------------
 time_span <- tribble(
    ~scale,   ~start,    ~end,
    "year",    2000L,   2020L,
@@ -50,22 +54,22 @@ time_span <- tribble(
 # Values ALWAYS have to be followed by the letter L
 
 
-####' ----- The spatial resolution of the download ####
-scale <- 1000L
+# The spatial resolution of the download --------------------------------------
+scale <- 500L
 # Default:
 #   scale <- 500L
 # Values ALWAYS have to be followed by the letter L
 
-####' ----- The dimension of tiles to be downloaded from GEE ####
-tile_dim <- 5120L
+# The dimension of tiles to be downloaded from GEE ----------------------------
+tile_dim <- 512L
 # Values have to be multiple of 256
 # Values ALWAYS have to be followed by the letter L
 # You can use tile_dim <- NULL to let GEE to choose the size automatically
 # Bigger values will result in bigger tiles, demanding more memory
 # Default:
-#   tile_dim <- 1536L
+#   tile_dim <- 512L
 
-####' ----- List of variables to download ####
+# List of variables to download -----------------------------------------------
 products <-
   c(
     "precip",          # Chirps daily precipitation (mm)
@@ -83,7 +87,7 @@ products <-
 # Comment a variable line to remove it from the routine
 # It's advised to always keep the "burn" variable
 
-####' ----- Set quality filter for each product ####
+# Set quality filter for each product -----------------------------------------
 qa_info <-
   tibble::tribble( # Tribble formatted using datapasta package!
        ~filter, ~bit_num, ~bit_value,
@@ -128,25 +132,20 @@ qa_info <-
     "f_4",       6L,         NA,
     "f_4",       7L,         NA
 )
-# There are two filters (since most variables share the same QA flags)
+# There are four filters (since most variables share the same QA flags)
 # "f_1" is used to filter EVI and NDVI products
 # "f_2" is used to filter GPP, LAI, FPAR and ET products
 # "f_3" is used to filter LST products
+# "f_4" is used to filter the burned area product
 # The value of bits can range from 0 to 1, you may set to NA to ignore
 # Values ALWAYS have to be followed by the letter L
 
-#### -------------------------------------------------- Processing options ####
-
-####' ----- Set multi-thread to transform raster to table ####
+# Set multi-thread to transform raster to table -------------------------------
 multi_thread <- TRUE
 # Default:
-#   multi_thread <- FALSE
-workers_num <- 16L
+#   multi_thread <- TRUE
+workers_num <- 9L
 # Default:
 #   workers_num <- 10L
 # This have the potential to greatly increase the speed of this process
 # However it will demand more memory, use it with caution
-
-## ------------------------------------------------------------------------- ##
-####* ------------------------------- END ------------------------------- *####
-## ------------------------------------------------------------------------- ##
