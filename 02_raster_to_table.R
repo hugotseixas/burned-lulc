@@ -100,7 +100,7 @@ mask %>%
       # Write parquet file
       write_parquet(
         x = .x,
-        sink = glue("data/tables/lulc/tile={.y}/mask-{.y}.parquet"),
+        sink = glue("data/tables/mask/tile={.y}/mask-{.y}.parquet"),
         version = "2.0"
       )
 
