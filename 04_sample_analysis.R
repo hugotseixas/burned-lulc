@@ -120,7 +120,8 @@ sample_mvar_long %>%
   labs(color = "group") +
   theme_bw() +
   coord_flip() +
-  theme(text = element_text(size = 11))
+  theme(text = element_text(size = 11)) +
+  ggsave("figs/median_ridges.png", width = 15, height = 18, units = "cm")
 
 ## Median values time series ----
 ggplot(sample_mvar_long) +
@@ -158,7 +159,8 @@ ggplot(sample_mvar_long) +
   scale_color_manual(values = c("#CC3311", "#009988")) +
   labs(color = "group") +
   theme_bw() +
-  theme(text = element_text(size = 11))
+  theme(text = element_text(size = 11)) +
+  ggsave("figs/median_lines.png", width = 15, height = 18, units = "cm")
 
 ## Ridges from differences ----
 # Maybe scale variables and remove 0.05 and 0.95 extremes?
@@ -184,10 +186,11 @@ sample_mvar_paired %>%
   theme(
     text = element_text(size = 11),
     legend.position = ""
-  )
+  ) +
+  ggsave("figs/diff_ridges.png", width = 15, height = 18, units = "cm")
 
 ## Differences time series ----
-ggplot(sample_mvar_paired) +
+ggplot(sample_mvar_paired %>% filter(var != "precip")) +
   facet_wrap( ~ var, ncol = 2, scales = "free_y") +
   annotate(
     "rect",
@@ -218,4 +221,5 @@ ggplot(sample_mvar_paired) +
     )
   ) +
   theme_bw() +
-  theme(text = element_text(size = 11))
+  theme(text = element_text(size = 11)) +
+  ggsave("figs/diff_lines.png", width = 15, height = 18, units = "cm")
