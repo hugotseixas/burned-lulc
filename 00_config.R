@@ -149,3 +149,9 @@ workers_num <- 9L
 #   workers_num <- 10L
 # This have the potential to greatly increase the speed of this process
 # However it will demand more memory, use it with caution
+
+# Sampling options ------------------------------------------------------------
+n_iteration <- 100
+n_experiment <- 500
+n_control <- 50000
+match_dist <- 5000
