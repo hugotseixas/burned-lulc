@@ -20,7 +20,8 @@ library(tidyverse)
 #
 # OPTIONS ---------------------------------------------------------------------
 #
-sf_use_s2(TRUE)
+source("conf/config.R")
+sf_use_s2(TRUE) # Use spherical operators for sf
 #
 # OPEN DATA SETS --------------------------------------------------------------
 
