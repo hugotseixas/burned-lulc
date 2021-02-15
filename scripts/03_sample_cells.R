@@ -56,7 +56,15 @@ yearly_burn <-
           select(id, date, burn, tile) %>%
           filter(tile == .x) %>%
           collect() %>%
-          mutate(burn = if_else(burn >= 1, 1, 0)) %>%
+          # Transform burning day of the month into binary
+          # (burned = 1, not burned = 0)
+          mutate(
+            burn = if_else(
+              condition = burn >= 1,
+              true = 1,
+              false =  0
+            )
+          ) %>%
           group_by(id, year = year(date)) %>%
           summarise(burn = sum(burn, na.rm = TRUE), .groups = "drop")
 
