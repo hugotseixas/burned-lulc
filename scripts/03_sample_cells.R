@@ -50,7 +50,7 @@ yearly_burn <-
     .f =
       ~ {
 
-        # Summarise burning count for each year
+        # Summarize burning count for each year
         mvar <-
           ds_mvar %>%
           select(id, date, burn, tile) %>%
@@ -189,15 +189,16 @@ walk(
               mvar <-
                 ds_mvar %>%
                 filter(tile == .x) %>%
-                select(id, date, et:precip) %>%
+                select(id, date, burn:precip) %>%
                 collect() %>%
-                mutate(year = year(date)) %>%
-                select(-date)
+                rename(mon_burn = burn) %>%
+                mutate(year = year(date))
 
               # Join with cells sample
               return(
                 sample %>%
                   mutate(year = year(date)) %>%
+                  select(-date) %>%
                   inner_join(mvar, by = c("id", "year")) %>%
                   select(-c(year, geometry))
               )

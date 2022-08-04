@@ -152,6 +152,6 @@ workers_num <- 9L
 
 # Sampling options ------------------------------------------------------------
 n_iteration <- 100
-n_experiment <- 500
+n_experiment <- 1000
 n_control <- 50000
 match_dist <- 5000

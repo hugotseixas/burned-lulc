@@ -16,19 +16,20 @@
 # LIBRARIES -------------------------------------------------------------------
 #
 #
-library(raster)
-library(tabularaster)
+library(terra)
 library(glue)
 library(fs)
 library(furrr)
 library(magrittr)
 library(lubridate)
 library(arrow)
+library(tools)
 library(tidyverse)
 #
 # OPTIONS ---------------------------------------------------------------------
 #
 source("conf/config.R")
+source("R/terra_as_tibble.R")
 #
 # EXPORT MASK TABLES ----------------------------------------------------------
 
@@ -38,11 +39,11 @@ dir_create("data/tables")
 ## Get paths for mask raster ----
 # Burned pixels mask
 initial_mask_path <-
-  dir_ls('data/original_raster/', regexp = "initial_mask.+tif$")
+  dir_ls('data/original_raster/initial_mask/', regexp = "initial_mask.+tif$")
 
 # Not burned pixels mask
 expanded_mask_path <-
-  dir_ls('data/original_raster/', regexp = "expanded_mask.+tif$")
+  dir_ls('data/original_raster/expanded_mask/', regexp = "expanded_mask.+tif$")
 
 ## Convert mask raster to table ----
 mask_list <-
@@ -61,8 +62,8 @@ mask_list <-
           function(raster_path) {
 
             return(
-              raster(raster_path) %>%
-                tabularaster::as_tibble(xy = TRUE, cell = TRUE) %>%
+              rast(raster_path) %>%
+                terra_as_tibble(xy = TRUE, cell = TRUE) %>%
                 filter(!(cellvalue == 0)) %>%
                 rename(!!sym(mask_name) := cellvalue)
             )
@@ -110,14 +111,14 @@ mask %>%
 # EXPORT ANNUAL LULC ----------------------------------------------------------
 
 ## Get lulc raster paths ----
-path_list <- dir_ls(path = "data/original_raster/", regexp = "lulc")
+path_list <- dir_ls(path = "data/original_raster/lulc", regexp = "lulc.+tif$")
 
 ## Plan multi-threading ----
 plan(strategy = "multisession", workers = workers_num)
 
 ## Convert raster to table ----
 future_walk(
-  path_list,
+  .x = path_list,
   .options = furrr_options(seed = NULL),
   # Future was raising a warning about the generation of random numbers,
   # to suppress this I set the option "seed = NULL", since the function
@@ -125,7 +126,7 @@ future_walk(
   function(raster_path) {
 
     # Load raster stack
-    raster_stack <- stack(raster_path)
+    raster_stack <- rast(raster_path)
 
     # Get band names
     raster_bands <- names(raster_stack)
@@ -141,12 +142,12 @@ future_walk(
         function(band_name, band_num) {
 
           # Load raster
-          raster <- raster::raster(raster_path, band = band_num)
+          raster <- rast(raster_path)[[band_num]]
 
           # Transform to table and join with mask table
           return(
             raster %>%
-              tabularaster::as_tibble(xy = FALSE, cell = TRUE) %>%
+              terra_as_tibble(xy = FALSE, cell = TRUE) %>%
               mutate(tile = tile) %>%
               inner_join(mask, by = c('tile', 'cellindex')) %>%
               mutate(date = str_remove(band_name, "X")) %>%
@@ -177,7 +178,7 @@ future_walk(
 tile_list <-
   unique(
     str_extract(
-      string = dir_ls('data/original_raster/', glob = '*.tif'),
+      string = dir_ls('data/original_raster/', glob = '*.tif', recurse = TRUE),
       pattern = "(?<=-)[^.tif]+"
     )
   )
@@ -192,10 +193,19 @@ walk(
 
     # Get all raster files for one raster chunk
     path_list <-
-      dir_ls(path = "data/original_raster/", regexp = glue("{tile}.+tif$")) %>%
+      dir_ls(
+        path = "data/original_raster/",
+        regexp = glue("{tile}.+tif$"),
+        recurse = 1
+      ) %>%
       as_tibble() %>%
       rename(path = value) %>%
-      mutate(var = str_extract(path, "(?<=raster/)[^-|.]+")) %>%
+      mutate(
+        var = str_extract(
+          string = file_path_sans_ext(basename(path)),
+          pattern = "[^-|.]+"
+        )
+      ) %>%
       filter(!var %in% c("initial_mask", "expanded_mask", "lulc"))
 
     plan(strategy = "multisession", workers = workers_num)
@@ -212,7 +222,7 @@ walk(
         function(raster_path, raster_var) {
 
           # Load raster stack
-          raster_stack <- stack(raster_path)
+          raster_stack <- rast(raster_path)
 
           # Get band names
           raster_bands <- names(raster_stack)
@@ -224,12 +234,12 @@ walk(
               function(band_name, band_num) {
 
                 # Load raster
-                raster <- raster::raster(raster_path, band = band_num)
+                raster <- rast(raster_path)[[band_num]]
 
                 # Transform to table and join with mask table
                 return(
                   raster %>%
-                    tabularaster::as_tibble(xy = FALSE, cell = TRUE) %>%
+                    terra_as_tibble(xy = FALSE, cell = TRUE) %>%
                     mutate(tile = tile) %>%
                     inner_join(mask, by = c('tile', 'cellindex')) %>%
                     mutate(

@@ -296,7 +296,11 @@ f_mask <-
         return(
           mb_img$
             select(band_name)$
-            remap(from = list(3L), to = list(1L), defaultValue = 0)$
+            remap(
+              from = list(3L),
+              to = list(1L),
+              defaultValue = 0
+            )$
             rename(as.character(band_name))
         )
       }
@@ -306,6 +310,34 @@ f_mask <-
 ## Reproject and reduce resolution ----
 f_mask <-
   f_mask$
+  reproject(crs = modis_proj)$
+  reduceResolution(reducer = ee$Reducer$mode(), bestEffort = TRUE)
+
+## Create anthropic mask ----
+a_mask <-
+  ee$Image(
+    map(
+      mb_img$bandNames()$getInfo(),
+      function(band_name) {
+        return(
+          mb_img$
+            select(band_name)$
+            remap(
+              from = list(
+                14L, 15L, 18L, 19L, 39L, 20L, 41L, 36L, 21L, 24L, 30L
+              ),
+              to = list(1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L),
+              defaultValue = 0
+            )$
+            rename(as.character(band_name))
+        )
+      }
+    )
+  )
+
+## Reproject and reduce resolution ----
+a_mask <-
+  a_mask$
   reproject(crs = modis_proj)$
   reduceResolution(reducer = ee$Reducer$mode(), bestEffort = TRUE)
 
@@ -351,6 +383,27 @@ ring_mask <-
 ## Merge masks ----
 expanded_mask <- ring_mask$unmask(0)$add(mask$unmask(0))$clip(aoi)
 
+## Calculate distance from anthropic border to forests
+dist <-
+  ee$Image(
+    map(
+      f_mask$bandNames()$getInfo(),
+      function(band_name) {
+        return(
+          f_mask$
+            select(band_name)$
+            cumulativeCost(
+              source = a_mask$select(band_name)$selfMask(),
+              maxDistance = 100000
+            )$
+            rename(as.character(band_name))
+        )
+      }
+    )
+  )$
+  round()$
+  updateMask(expanded_mask)
+
 # APPLY MASKS ----
 
 ## Add MapBiomas image to image list ----
@@ -364,12 +417,13 @@ masked_images <-
   )
 
 ## Add masks to image list ----
-all_products <- c(masked_images, mask, expanded_mask)
+all_products <- c(masked_images, mask, expanded_mask, dist)
 
 ## DOWNLOAD IMAGES ----
 
 ## List products ----
-products_list <- c(ee_products$var, "lulc", "initial_mask", "expanded_mask")
+products_list <-
+  c(ee_products$var, "lulc", "initial_mask", "expanded_mask", "dist")
 
 ## Delete googledrive download folder ----
 if (clear_driver_folder == TRUE) { drive_rm('burned_lulc') }
@@ -378,11 +432,11 @@ if (clear_driver_folder == TRUE) { drive_rm('burned_lulc') }
 drive_mkdir(name = "burned_lulc")
 walk(
   products_list,
-  function(product) {drive_mkdir(glue("burned_lulc/{product}"))}
+  function(product) { drive_mkdir(glue("burned_lulc/{product}")) }
 )
 
 ## Download images one by one ----
-for(i in seq_along(all_products)) {
+for (i in seq_along(all_products)) {
 
   image <- ee$Image(all_products[[i]])
 
@@ -418,7 +472,7 @@ for(i in seq_along(all_products)) {
 dir_create("data/original_raster")
 
 ## Download files from drive to project folder ----
-for(i in seq_along(all_products)) {
+for (i in seq_along(all_products)) {
 
   product <- products_list[i]
 
